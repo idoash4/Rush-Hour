@@ -1,5 +1,7 @@
 from src.image_process.image_vehicle import VehicleImage
 from src.image_process.board_image import BoardImage
+from src.models.board import Board
+from rush_hour import RushHour
 
 
 def main():
@@ -19,9 +21,14 @@ def main():
                 VehicleImage(14, "Light Purple Trunk", 3, (((120, 50, 120), (142, 145, 240)),)),
                 VehicleImage(15, "Blue Trunk", 3, (((107, 160, 48), (114, 255, 210)),)),
                 VehicleImage(16, "Jade Trunk", 3, (((86, 107, 70), (94, 225, 209)),))]
-    board_image_process = BoardImage('../samples4/half_angle4_300.JPG')
-    board = board_image_process.process(vehicles)
+    board_image_process = BoardImage('../samples4/half_angle3_300.JPG')
+    board_matrix = board_image_process.process(vehicles)
+    board = Board.from_matrix(board_matrix)
     print(board)
+    node = board.solve()
+    print(node)
+    rh = RushHour(board)
+    rh.start()
 
 
 if __name__ == '__main__':

@@ -23,7 +23,7 @@ class BoardImage:
     board_orientation: BoardOrientation
     board_matrix: np.ndarray
 
-    def __init__(self, image_path):
+    def __init__(self, image_path: str):
         self.image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2HSV)
         self.board_orientation = BoardOrientation.DOWN
         self.board_matrix = np.zeros((6, 6), dtype=int)
@@ -146,7 +146,7 @@ class BoardImage:
         dilate = cv2.dilate(threshold, kernel, iterations=3)
         #canny = cv2.Canny()
         # Hough lines
-        proccesed_image = dilate.copy()
+        lines_image = dilate.copy()
         lines_list = []
         lines = cv2.HoughLinesP(
             dilate,  # Input edge image
@@ -162,11 +162,11 @@ class BoardImage:
             x1, y1, x2, y2 = points[0]
             # Draw the lines joing the points
             # On the original image
-            cv2.line(proccesed_image, (x1, y1), (x2, y2), (255, 255, 255), 1)
+            cv2.line(lines_image, (x1, y1), (x2, y2), (255, 255, 255), 1)
             # Maintain a simples lookup list for points
             lines_list.append([(x1, y1), (x2, y2)])
 
-        closing = cv2.morphologyEx(proccesed_image, cv2.MORPH_CLOSE, kernel, iterations=3)
+        closing = cv2.morphologyEx(lines_image, cv2.MORPH_CLOSE, kernel, iterations=3)
         contours = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if len(contours) == 2 else contours[1]
         corner = sorted(contours, key=cv2.contourArea, reverse=True)[0]
@@ -187,7 +187,6 @@ class BoardImage:
         # Get the corners:
         corners = cv2.goodFeaturesToTrack(hullImg, maxCorners, qualityLevel, minDistance)
         corners = np.intp(corners)
-        print(corners.sum(axis=1))
         return corners.sum(axis=1)
 
     @staticmethod

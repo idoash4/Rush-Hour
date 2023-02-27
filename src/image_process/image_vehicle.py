@@ -40,7 +40,6 @@ class VehicleImage:
         if contours[0]:
             contours = contours[0] if len(contours) == 2 else contours[1]
             contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
-            print(str(self.id) + ": " + str(cv2.contourArea(contour)))
             if cv2.contourArea(contour) > contour_area_threshold:
                 return cv2.boundingRect(contour)
 

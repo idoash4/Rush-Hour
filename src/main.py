@@ -27,7 +27,7 @@ def main():
     print(board)
     node = board.solve()
     print(node)
-    rh = RushHour(board)
+    rh = RushHour()
     rh.start()
 
 

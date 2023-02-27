@@ -67,13 +67,16 @@ class Board:
             and self.vehicles[0].orientation == VehicleOrientation.HORIZONTAL \
             and self.vehicles[0].slots[-1][1] == BOARD_SIZE - 1
 
+    def is_empty(self):
+        return len(self.vehicles) == 0
+
     def solve(self, max_depth=93):
         root = Node(board=self, parent=None, depth=0)
         visited_boards = set()
         queue = [root]
         depth = 0
 
-        while depth <= max_depth:
+        while len(queue) > 0 and depth <= max_depth:
             node = queue.pop(0)
             depth = node.depth
 

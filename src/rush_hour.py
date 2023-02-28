@@ -1,48 +1,11 @@
 import tkinter
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, LEFT, RIGHT
 import numpy as np
+from PIL import ImageTk, Image
 
-from src.models.board import Board
+from src.consts import *
+from src.models.board import Board, Vehicle
 from src.image_process.board_image import BoardImage
-from src.image_process.image_vehicle import VehicleImage
-
-CELL_SIZE = 75
-MARGIN = CELL_SIZE // 8
-VEHICLE_COLORS = {
-                  1: '#D62133', #Red
-                  2: '#F0F167', #Light Yellow Car
-                  3: '#FFA1D8', #Pink Car
-                  4: '#007E64', #Green Car
-                  5: '#828400', #Olive Green Car
-                  6: '#7B5956', #Light Brown Car
-                  7: '#B0C6CD', #Gray Car
-                  8: '#E6C998', #Beige Car
-                  9: '#00BAFD', #Cyan Car
-                  10: '#00EABF', #Light Green Car
-                  11: '#5162CE', #Purple Car
-                  12: '#FF823A', #Orange Car
-                  13: '#FAD444', #Sunflower Yellow Trunk
-                  14: '#9E94F0', #Light Purple Trunk
-                  15: '#0043C8', #Blue Trunk
-                  16: '#00B9BA' #Jade Trunk
-                  }
-
-vehicles = [VehicleImage(1, "Red Car", 2, (((173, 173, 94), (180, 232, 227)), ((0, 160, 150), (5, 220, 220)))),
-            VehicleImage(2, "Light Yellow Car", 2, (((25, 90, 185), (35, 152, 250)),)),
-            VehicleImage(3, "Pink Car", 2, (((150, 30, 100), (172, 255, 255)),)),
-            VehicleImage(4, "Green Car", 2, (((66, 130, 38), (87, 256, 175)),)),
-            VehicleImage(5, "Olive Green Car", 2, (((29, 150, 48), (36, 256, 256)),)),
-            VehicleImage(6, "Light Brown Car", 2, (((0, 0, 0), (8, 120, 255)),)),
-            VehicleImage(7, "Gray Car", 2, (((85, 20, 120), (105, 60, 255)),)),
-            VehicleImage(8, "Beige Car", 2, (((18, 40, 115), (35, 80, 250)),)),
-            VehicleImage(9, "Cyan Car", 2, (((95, 125, 160), (103, 180, 255)),)),
-            VehicleImage(10, "Light Green Car", 2, (((74, 0, 145), (88, 256, 256)),)),
-            VehicleImage(11, "Purple Car", 2, (((110, 90, 140), (120, 140, 255)),)),
-            VehicleImage(12, "Orange Car", 2, (((6, 80, 130), (15, 255, 255)),)),
-            VehicleImage(13, "Sunflower Yellow Trunk", 3, (((14, 158, 117), (29, 256, 256)),)),
-            VehicleImage(14, "Light Purple Trunk", 3, (((120, 50, 120), (142, 145, 240)),)),
-            VehicleImage(15, "Blue Trunk", 3, (((107, 160, 48), (114, 255, 210)),)),
-            VehicleImage(16, "Jade Trunk", 3, (((86, 107, 70), (94, 225, 209)),))]
 
 
 class RushHour:
@@ -50,6 +13,7 @@ class RushHour:
     board_canvas: tkinter.Canvas
     solution: list[Board]
     current_board_index: int
+    upload_image_button: ttk.Button
     solve_button: ttk.Button
     next_button: ttk.Button
     prev_button: ttk.Button
@@ -63,23 +27,40 @@ class RushHour:
         root = tkinter.Tk()
         root.title("Rush Hour")
 
-        board_frame = tkinter.Frame(root, height=800, width=1600)
+        board_frame = tkinter.Frame(root)
         board_frame.grid()
         self.board_canvas = tkinter.Canvas(board_frame, width=CELL_SIZE * 6, height=CELL_SIZE * 6)
         self.board_canvas.pack(fill='both', expand=True, side='top')
         self.draw_board_lines()
 
-        upload_image_button = ttk.Button(board_frame, text="Upload Image", command=self.upload_image)
-        upload_image_button.pack()
+        upload_image = Image.open("resources/upload.jpeg")
+        upload_image = upload_image.resize((55, 60))
+        upload_photo_image = ImageTk.PhotoImage(upload_image)
 
-        self.solve_button = ttk.Button(board_frame, text="Solve Board", command=self.solve, state='disabled')
-        self.solve_button.pack()
+        solve_image = Image.open("resources/solve.jpeg")
+        solve_image = solve_image.resize((40, 60))
+        solve_photo_image = ImageTk.PhotoImage(solve_image)
 
-        self.next_button = ttk.Button(board_frame, text="Next", command=self.next, state='disabled')
-        self.next_button.pack()
+        prev_image = Image.open("resources/prev.jpeg")
+        prev_image = prev_image.resize((75, 60))
+        prev_photo_image = ImageTk.PhotoImage(prev_image)
 
-        self.prev_button = ttk.Button(board_frame, text="Prev", command=self.prev, state='disabled')
-        self.prev_button.pack()
+        next_image = Image.open("resources/next.jpeg")
+        next_image = next_image.resize((75, 60))
+        next_photo_image = ImageTk.PhotoImage(next_image)
+
+        self.upload_image_button = tkinter.Button(board_frame, image=upload_photo_image, command=self.upload_image)
+
+        self.solve_button = tkinter.Button(board_frame, image=solve_photo_image, state='disabled', command=self.solve)
+
+        self.prev_button = tkinter.Button(board_frame, image=prev_photo_image, state='disabled', command=self.prev)
+
+        self.next_button = tkinter.Button(board_frame, image=next_photo_image, state='disabled', command=self.next)
+
+        self.upload_image_button.pack(side=LEFT)
+        self.solve_button.pack(side=LEFT)
+        self.next_button.pack(side=RIGHT)
+        self.prev_button.pack(side=RIGHT)
 
         if not self.board.is_empty():
             self.draw_board(self.board)
@@ -90,7 +71,7 @@ class RushHour:
     def upload_image(self):
         file_path = filedialog.askopenfilename()
         board_image = BoardImage(file_path)
-        self.board = Board.from_matrix(board_image.process(vehicles))
+        self.board = Board.from_matrix(board_image.process(VEHICLES))
         self.next_button["state"] = "disabled"
         self.prev_button["state"] = "disabled"
         self.draw_board(self.board)
@@ -106,17 +87,22 @@ class RushHour:
         self.current_board_index = 0
         self.solve_button["state"] = "disabled"
         self.next_button["state"] = "normal"
-        self.prev_button["state"] = "normal"
 
     def next(self):
-        if self.solution:
-            self.current_board_index = min(len(self.solution)-1, self.current_board_index+1)
+        if self.solution and self.current_board_index < len(self.solution):
+            self.current_board_index += 1
             self.draw_board(self.solution[self.current_board_index])
+            self.prev_button["state"] = "normal"
+            if self.current_board_index == len(self.solution) - 1:
+                self.next_button["state"] = "disabled"
 
     def prev(self):
-        if self.solution:
-            self.current_board_index = max(0, self.current_board_index - 1)
+        if self.solution and self.current_board_index > 0:
+            self.current_board_index -= 1
             self.draw_board(self.solution[self.current_board_index])
+            self.next_button["state"] = "normal"
+            if self.current_board_index == 0:
+                self.prev_button["state"] = "disabled"
 
     def draw_board_lines(self):
         xmin, ymin = 0, 0
@@ -133,7 +119,7 @@ class RushHour:
         self.board_canvas.delete('vehicle')
         self.draw_vehicles(board.vehicles)
 
-    def draw_vehicles(self, vehicles: tuple[vehicles]):
+    def draw_vehicles(self, vehicles: tuple[Vehicle]):
         for vehicle in vehicles:
             self.draw_vehicle(vehicle)
 

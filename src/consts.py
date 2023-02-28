@@ -22,12 +22,12 @@ VEHICLE_COLORS = {
                   16: '#00B9BA' #Jade Trunk
                   }
 VEHICLES = [VehicleImage(1, "Red Car", 2, (((173, 173, 94), (180, 232, 227)), ((0, 160, 150), (5, 220, 220)))),
-            VehicleImage(2, "Light Yellow Car", 2, (((25, 90, 185), (35, 152, 250)),)),
+            VehicleImage(2, "Light Yellow Car", 2, (((25, 90, 150), (35, 152, 250)),)),
             VehicleImage(3, "Pink Car", 2, (((150, 30, 100), (172, 255, 255)),)),
             VehicleImage(4, "Green Car", 2, (((66, 130, 38), (87, 256, 175)),)),
             VehicleImage(5, "Olive Green Car", 2, (((29, 150, 48), (36, 256, 256)),)),
             VehicleImage(6, "Light Brown Car", 2, (((0, 0, 0), (8, 120, 255)),)),
-            VehicleImage(7, "Gray Car", 2, (((85, 20, 120), (105, 60, 255)),)),
+            VehicleImage(7, "Gray Car", 2, (((85, 0, 120), (105, 60, 255)),)),
             VehicleImage(8, "Beige Car", 2, (((18, 40, 115), (35, 80, 250)),)),
             VehicleImage(9, "Cyan Car", 2, (((95, 125, 160), (103, 180, 255)),)),
             VehicleImage(10, "Light Green Car", 2, (((74, 0, 145), (88, 256, 256)),)),

@@ -142,26 +142,27 @@ class BoardImage:
     def find_board_corners(image: np.ndarray) -> np.ndarray:
         mask = cv2.inRange(image, (30, 0, 20), (120, 120, 120))
         ret, threshold = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+        edges = cv2.Canny(threshold, 30, 100)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-        dilate = cv2.dilate(threshold, kernel, iterations=3)
-        #canny = cv2.Canny()
+        edges = cv2.dilate(edges, kernel, iterations=3)
         # Hough lines
-        lines_image = dilate.copy()
+        lines_image = edges.copy()
         lines_list = []
         lines = cv2.HoughLinesP(
-            dilate,  # Input edge image
-            4,  # Distance resolution in pixels
+            edges,  # Input edge image
+            1,  # Distance resolution in pixels
             np.pi / 180,  # Angle resolution in radians
-            threshold=50,  # Min number of votes for valid line
-            minLineLength=300,
+            threshold=300,  # Min number of votes for valid line
+            minLineLength=200,
             maxLineGap=600
         )
         # Iterate over points
+        print(lines[0])
         for points in lines:
             # Extracted points nested in the list
             x1, y1, x2, y2 = points[0]
             # Draw the lines joing the points
-            # On the original image
             cv2.line(lines_image, (x1, y1), (x2, y2), (255, 255, 255), 1)
             # Maintain a simples lookup list for points
             lines_list.append([(x1, y1), (x2, y2)])
@@ -223,14 +224,16 @@ class BoardImage:
             for contour in contours:
                 (x, y, w, h) = cv2.boundingRect(contour)
                 if w * h > logo_area_threshold and max(w, h) / min(w, h) < 3:
-                    if m >= y + h >= m * 0.85:
+                    if h >= m * 0.9:
                         return BoardOrientation.DOWN
-                    elif y <= m * 0.15:
+                    elif y <= m * 0.1:
                         return BoardOrientation.UP
-                    elif x <= n * 0.15:
+                    elif x <= n * 0.1:
                         return BoardOrientation.RIGHT
-                    elif x + w >= n * 0.85:
+                    elif x + w >= n * 0.9:
                         return BoardOrientation.LEFT
+                    else:
+                        continue
                     break
         # We failed to understand the orientation from the logo, fallback to default
         return BoardOrientation.DOWN
@@ -280,10 +283,14 @@ class BoardImage:
             for optional_location in optional_locations:
                 row, col, vehicle_orientation = optional_location
 
-                if ((self.board_orientation == BoardOrientation.DOWN and row == 2 and vehicle_orientation) or
-                        (self.board_orientation == BoardOrientation.RIGHT and col == 3 and not vehicle_orientation) or
-                        (self.board_orientation == BoardOrientation.UP and row == 3 and vehicle_orientation) or
-                        (self.board_orientation == BoardOrientation.LEFT and col == 2 and not vehicle_orientation)):
+                if ((self.board_orientation == BoardOrientation.DOWN and row == 2 and
+                     vehicle_orientation == VehicleOrientation.HORIZONTAL) or
+                        (self.board_orientation == BoardOrientation.RIGHT and col == 3 and
+                         vehicle_orientation == VehicleOrientation.VERTICAL) or
+                        (self.board_orientation == BoardOrientation.UP and row == 3 and
+                         vehicle_orientation == VehicleOrientation.HORIZONTAL) or
+                        (self.board_orientation == BoardOrientation.LEFT and col == 2 and
+                         vehicle_orientation == VehicleOrientation.VERTICAL)):
                     updated_optional_locations.append(optional_location)
 
             if not updated_optional_locations:
@@ -344,6 +351,7 @@ class BoardImage:
             if not vehicle_location:
                 continue
             (x, y, w, h) = vehicle_location
+            print(str(vehicle.id) + ": " + str(vehicle_location))
             vehicle_orientation = VehicleOrientation.HORIZONTAL if w > h else VehicleOrientation.VERTICAL
             row = round((y + h) / (m / 6) - 1)
             col = round(x / (n / 6))

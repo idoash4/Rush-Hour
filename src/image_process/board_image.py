@@ -140,6 +140,7 @@ class BoardImage:
 
     @staticmethod
     def find_board_corners(image: np.ndarray) -> np.ndarray:
+        m, n = image.shape[0:2]
         mask = cv2.inRange(image, (30, 0, 20), (120, 120, 120))
         ret, threshold = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
@@ -148,24 +149,42 @@ class BoardImage:
         edges = cv2.dilate(edges, kernel, iterations=3)
         # Hough lines
         lines_image = edges.copy()
-        lines_list = []
         lines = cv2.HoughLinesP(
             edges,  # Input edge image
-            1,  # Distance resolution in pixels
+            2,  # Distance resolution in pixels
             np.pi / 180,  # Angle resolution in radians
             threshold=300,  # Min number of votes for valid line
-            minLineLength=200,
-            maxLineGap=600
+            minLineLength=max(m, n) / 16,
+            maxLineGap=max(m, n) / 8
         )
         # Iterate over points
-        print(lines[0])
-        for points in lines:
+        epsilon = 0.000001
+        for line1_index, line1 in enumerate(lines):
             # Extracted points nested in the list
-            x1, y1, x2, y2 = points[0]
-            # Draw the lines joing the points
-            cv2.line(lines_image, (x1, y1), (x2, y2), (255, 255, 255), 1)
-            # Maintain a simples lookup list for points
-            lines_list.append([(x1, y1), (x2, y2)])
+            line1_x1, line1_y1, line1_x2, line1_y2 = line1[0]
+            m1 = (line1_y2 - line1_y1) / (line1_x2 - line1_x1) if np.abs(line1_x2 - line1_x1) > epsilon else np.inf
+            for line2 in lines[line1_index + 1:]:
+                # Extracted points nested in the list
+                line2_x1, line2_y1, line2_x2, line2_y2 = line2[0]
+                m2 = (line2_y2 - line2_y1) / (line2_x2 - line2_x1) if np.abs(line2_x2 - line2_x1) > epsilon else np.inf
+                if np.abs(m1) < epsilon or np.abs(m2) < epsilon:
+                    if np.abs(m1) < epsilon and np.abs(m2) < epsilon:
+                        dist = np.abs(line1_y1 - line2_y1)
+                    else:
+                        continue
+                elif m1 == np.inf and m2 == np.inf:
+                    dist = np.abs(line1_x1 - line2_x1)
+                elif np.abs(m1 - m2) <= 0.5 and (m2 + 1 / m1) != 0:
+                    x_cross = (line1_y1 + line1_x1 / m1 - line2_y1 + m2 * line2_x1) / (m2 + 1 / m1)
+                    y_cross = line2_y1 + m2 * (x_cross - line2_x1)
+                    dist = np.sqrt((line1_x1 - x_cross) ** 2 + (line1_y1 - y_cross) ** 2)
+                else:
+                    continue
+                if dist > 0.3 * m:
+                    # Draw the lines joing the points
+                    # On the original image
+                    cv2.line(lines_image, (line1_x1, line1_y1), (line1_x2, line1_y2), (255, 255, 255), 1)
+                    cv2.line(lines_image, (line2_x1, line2_y1), (line2_x2, line2_y2), (255, 255, 255), 1)
 
         closing = cv2.morphologyEx(lines_image, cv2.MORPH_CLOSE, kernel, iterations=3)
         contours = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

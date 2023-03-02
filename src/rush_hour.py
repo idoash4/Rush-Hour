@@ -61,11 +61,12 @@ class RushHour:
 
         self.next_button = tkinter.Button(button_frame, image=next_photo_image, state='disabled', command=self.next)
 
-        self.text_label = tkinter.Label(button_frame, width=14, fg='red', font=('Arial', 20, 'bold'))
+        self.text_label = tkinter.Label(button_frame, fg='red', font=('Arial', 20, 'bold'))
 
         self.upload_image_button.grid(row=0, column=0, columnspan=1)
         self.solve_button.grid(row=0, column=1, columnspan=1)
         self.text_label.grid(row=0, column=2, columnspan=1)
+        button_frame.columnconfigure(2, weight=1)
         self.prev_button.grid(row=0, column=3, columnspan=1)
         self.next_button.grid(row=0, column=4, columnspan=1)
 

@@ -3,7 +3,8 @@ import math
 import numpy as np
 from enum import Enum
 from itertools import product
-from .image_vehicle import VehicleImage
+from src.image_process.image_vehicle import VehicleImage
+from src.image_process.consts import *
 
 
 class BoardOrientation(Enum):
@@ -71,20 +72,16 @@ class BoardImage:
         # obtain a consistent order of the points and unpack
         rect = BoardImage.sort_points_clockwise(corners)
         (tl, tr, br, bl) = rect
-        # compute the width of the new image, which will be the
-        # maximum distance between bottom-right and bottom-left
-        # x-coordiates or the top-right and top-left x-coordinates
-        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-        # maxWidth = max(int(widthA), int(widthB))
-        w = max(widthA, widthB)
-        # compute the height of the new image, which will be the
-        # maximum distance between the top-right and bottom-right
-        # y-coordinates or the top-left and bottom-left y-coordinates
-        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-        # maxHeight = max(int(heightA), int(heightB))
-        h = max(heightA, heightB)
+
+        # maximum width
+        width_top = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        width_bottom = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        w = max(width_top, width_bottom)
+
+        # maximum height
+        height_right = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        height_left = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        h = max(height_right, height_left)
 
         # visible aspect ratio
         rect = (tl, tr, bl, br)
@@ -141,12 +138,12 @@ class BoardImage:
     @staticmethod
     def find_board_corners(image: np.ndarray) -> np.ndarray:
         m, n = image.shape[0:2]
-        mask = cv2.inRange(image, (30, 0, 20), (120, 120, 120))
+        mask = cv2.inRange(image, *BOARD_COLOR_RANGE)
         ret, threshold = cv2.threshold(mask, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
-        edges = cv2.Canny(threshold, 30, 100)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-        edges = cv2.dilate(edges, kernel, iterations=3)
+        edges = cv2.Canny(threshold, CORNERS_CANNY_THRESHOLD1, CORNERS_CANNY_THRESHOLD2)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, CORNERS_MORPH_RECT_DIMENSIONS)
+        edges = cv2.dilate(edges, kernel, iterations=CORNERS_MORPH_ITERATIONS)
         # Hough lines
         lines_image = edges.copy()
         lines = cv2.HoughLinesP(
@@ -154,8 +151,8 @@ class BoardImage:
             2,  # Distance resolution in pixels
             np.pi / 180,  # Angle resolution in radians
             threshold=300,  # Min number of votes for valid line
-            minLineLength=max(m, n) / 16,
-            maxLineGap=max(m, n) / 8
+            minLineLength=max(m, n) * CORNERS_LINES_MIN_LENGTH,
+            maxLineGap=max(m, n) * CORNERS_LINES_MAX_GAP
         )
         # Iterate over points
         epsilon = 0.000001
@@ -174,36 +171,35 @@ class BoardImage:
                         continue
                 elif m1 == np.inf and m2 == np.inf:
                     dist = np.abs(line1_x1 - line2_x1)
-                elif np.abs(m1 - m2) <= 0.5 and (m2 + 1 / m1) != 0:
+                elif np.abs(m1 - m2) <= CORNERS_LINES_SLOPE_THRESHOLD and (m2 + 1 / m1) != 0:
                     x_cross = (line1_y1 + line1_x1 / m1 - line2_y1 + m2 * line2_x1) / (m2 + 1 / m1)
                     y_cross = line2_y1 + m2 * (x_cross - line2_x1)
                     dist = np.sqrt((line1_x1 - x_cross) ** 2 + (line1_y1 - y_cross) ** 2)
                 else:
                     continue
-                if dist > 0.3 * m:
+                if dist > CORNERS_LINES_DISTANCE_THRESHOLD * m:
                     # Draw the lines joing the points
                     # On the original image
                     cv2.line(lines_image, (line1_x1, line1_y1), (line1_x2, line1_y2), (255, 255, 255), 1)
                     cv2.line(lines_image, (line2_x1, line2_y1), (line2_x2, line2_y2), (255, 255, 255), 1)
 
-        closing = cv2.morphologyEx(lines_image, cv2.MORPH_CLOSE, kernel, iterations=3)
+        closing = cv2.morphologyEx(lines_image, cv2.MORPH_CLOSE, kernel, iterations=CORNERS_MORPH_ITERATIONS)
         contours = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if len(contours) == 2 else contours[1]
         corner = sorted(contours, key=cv2.contourArea, reverse=True)[0]
 
         length = cv2.arcLength(corner, True)
-        approx = cv2.approxPolyDP(corner, 0.05 * length, True)
+        approx = cv2.approxPolyDP(corner, CORNERS_APPROX_POLY_DP * length, True)
         # Get the convex hull for the target contour:
         hull = cv2.convexHull(approx)
         # Create image for good features to track:
-        (height, width) = image.shape[:2]
-        # Black image same size as original input:
-        hullImg = np.zeros((height, width), dtype=np.uint8)
+        # Black image same size as original input
+        hullImg = np.zeros((m, n), dtype=np.uint8)
         # Draw the points:
         cv2.drawContours(hullImg, [hull], 0, 255, 5)
         maxCorners = 4
         qualityLevel = 0.01
-        minDistance = int(max(height, width) / maxCorners)
+        minDistance = int(max(m, n) / maxCorners)
         # Get the corners:
         corners = cv2.goodFeaturesToTrack(hullImg, maxCorners, qualityLevel, minDistance)
         corners = np.intp(corners)

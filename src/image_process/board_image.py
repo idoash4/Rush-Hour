@@ -83,19 +83,19 @@ class BoardImage:
         height_left = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
         h = max(height_right, height_left)
 
-        # visible aspect ratio
-        rect = (tl, tr, bl, br)
+        # aspect ratio in the image
         ar_vis = float(w) / float(h)
+        # center point of the image
         u0 = (image.shape[1]) / 2.0
         v0 = (image.shape[0]) / 2.0
 
-        # make numpy arrays and append 1 for linear algebra
-        m1 = np.array((rect[0][0], rect[0][1], 1)).astype('float32')
-        m2 = np.array((rect[1][0], rect[1][1], 1)).astype('float32')
-        m3 = np.array((rect[2][0], rect[2][1], 1)).astype('float32')
-        m4 = np.array((rect[3][0], rect[3][1], 1)).astype('float32')
+        # convert to homogeneous coordinates
+        m1 = np.array((tl[0], tl[1], 1)).astype('float32')
+        m2 = np.array((tr[0], tr[1], 1)).astype('float32')
+        m3 = np.array((bl[0], bl[1], 1)).astype('float32')
+        m4 = np.array((br[0], br[1], 1)).astype('float32')
 
-        # calculate the focal disrance
+        # calculate the focal distance, stages 11 and 12
         k2 = np.dot(np.cross(m1, m4), m3) / np.dot(np.cross(m2, m4), m3)
         k3 = np.dot(np.cross(m1, m4), m2) / np.dot(np.cross(m3, m4), m2)
 
@@ -110,18 +110,20 @@ class BoardImage:
         n32 = n3[1]
         n33 = n3[2]
 
-        f = math.sqrt(np.abs((1.0 / (n23 * n33)) * ((n21 * n31 - (n21 * n33 + n23 * n31) * u0 + n23 * n33 * u0 * u0) + (
-                    n22 * n32 - (n22 * n33 + n23 * n32) * v0 + n23 * n33 * v0 * v0))))
+        # Calculate the focal length stage 21
+        f = math.sqrt(np.abs((1.0 / (n23 * n33)) * ((n21 * n31 - (n21 * n33 + n23 * n31) * u0 + n23 * n33 * u0 ** 2) + (
+                    n22 * n32 - (n22 * n33 + n23 * n32) * v0 + n23 * n33 * v0 ** 2))))
 
+        # Calibration matrix
         A = np.array([[f, 0, u0], [0, f, v0], [0, 0, 1]]).astype('float32')
-
         At = np.transpose(A)
         Ati = np.linalg.inv(At)
         Ai = np.linalg.inv(A)
 
-        # calculate the real aspect ratio
+        # calculate the real aspect ratio, stage 20
         ar_real = math.sqrt(np.dot(np.dot(np.dot(n2, Ati), Ai), n2) / np.dot(np.dot(np.dot(n3, Ati), Ai), n3))
 
+        # Rectification section 3.3
         if ar_real < ar_vis:
             W = int(w)
             H = int(W / ar_real)
@@ -129,10 +131,9 @@ class BoardImage:
             H = int(h)
             W = int(ar_real * H)
 
-        pts1 = np.array(rect).astype('float32')
-        pts2 = np.float32([[0, 0], [W, 0], [0, H], [W, H]])
-
-        M = cv2.getPerspectiveTransform(pts1, pts2)
+        # Apply the perspective transform
+        points = np.float32([[0, 0], [W, 0], [W, H], [0, H]])
+        M = cv2.getPerspectiveTransform(rect, points)
         return cv2.warpPerspective(image, M, (W, H))
 
     @staticmethod
@@ -366,7 +367,6 @@ class BoardImage:
             if not vehicle_location:
                 continue
             (x, y, w, h) = vehicle_location
-            print(str(vehicle.id) + ": " + str(vehicle_location))
             vehicle_orientation = VehicleOrientation.HORIZONTAL if w > h else VehicleOrientation.VERTICAL
             row = round((y + h) / (m / 6) - 1)
             col = round(x / (n / 6))

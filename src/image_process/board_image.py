@@ -187,10 +187,10 @@ class BoardImage:
         closing = cv2.morphologyEx(lines_image, cv2.MORPH_CLOSE, kernel, iterations=CORNERS_MORPH_ITERATIONS)
         contours = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = contours[0] if len(contours) == 2 else contours[1]
-        corner = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+        contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
 
-        length = cv2.arcLength(corner, True)
-        approx = cv2.approxPolyDP(corner, CORNERS_APPROX_POLY_DP * length, True)
+        length = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, CORNERS_APPROX_POLY_DP * length, True)
         # Get the convex hull for the target contour:
         hull = cv2.convexHull(approx)
         # Create image for good features to track:
@@ -262,7 +262,7 @@ class BoardImage:
         elif orientation == BoardOrientation.RIGHT:
             return image[round(m * 0.06):round(-m * 0.06), round(n * 0.14):round(-n * 0.08)]
         elif orientation == BoardOrientation.UP:
-            return image[round(m * 0.14):round(-m * 0.08), round(n * 0.06):round(-n * 0.06)]
+            return image[round(m * 0.14):round(-m * 0.09), round(n * 0.06):round(-n * 0.06)]
         elif orientation == BoardOrientation.LEFT:
             return image[round(m * 0.06):round(-m * 0.06), round(n * 0.08):round(-n * 0.14)]
 
@@ -274,11 +274,11 @@ class BoardImage:
 
     def is_in_range(self, vehicle, row, col, vehicle_orientation):
         if vehicle_orientation == VehicleOrientation.HORIZONTAL:
-            return 0 <= row <= self.board_matrix.shape[0] \
-                and col >= 0 and (col + vehicle.size - 1) <= self.board_matrix.shape[1]
+            return 0 <= row < self.board_matrix.shape[0] \
+                and col >= 0 and (col + vehicle.size - 1) < self.board_matrix.shape[1]
         else:
-            return (row - vehicle.size + 1) >= 0 and row <= self.board_matrix.shape[0] \
-                and 0 <= col <= self.board_matrix.shape[1]
+            return (row - vehicle.size + 1) >= 0 and row < self.board_matrix.shape[0] \
+                and 0 <= col < self.board_matrix.shape[1]
 
     def is_available(self, vehicle, row, col, vehicle_orientation):
         if self.is_in_range(vehicle, row, col, vehicle_orientation):
@@ -308,6 +308,7 @@ class BoardImage:
                         (self.board_orientation == BoardOrientation.LEFT and col == 2 and
                          vehicle_orientation == VehicleOrientation.VERTICAL)):
                     updated_optional_locations.append(optional_location)
+                    print(optional_location)
 
             if not updated_optional_locations:
                 return optional_locations
@@ -417,7 +418,7 @@ class BoardImage:
                 vehicle_orientations.append(VehicleOrientation.VERTICAL if
                                             vehicle_orientations[0] == VehicleOrientation.HORIZONTAL
                                             else VehicleOrientation.HORIZONTAL)
-                # Add options by top right corner, order by likely orintation
+                # Add options by top right corner, order by likely orientation
                 if vehicle_orientations[0] == VehicleOrientation.HORIZONTAL:
                     rows.append(round(y / (m / 6)))
                     rows.append(round(y / (m / 6) + vehicle.size - 1))
@@ -432,6 +433,21 @@ class BoardImage:
             # remove duplicates in list while preserving the order with list(dict.fromkeys())
             vehicles_to_optional_locations[vehicle] = list(
                 product(list(dict.fromkeys(rows)), list(dict.fromkeys(cols)), vehicle_orientations))
+
+        # prevent board out of bounds
+        for vehicle, optional_locations in vehicles_to_optional_locations.items():
+            new_optional_locations = []
+            for optional_location in optional_locations:
+                row, col, vehicle_orientation = optional_location
+                if self.is_in_range(vehicle, row, col, vehicle_orientation):
+                    new_optional_locations.append(optional_location)
+                    continue
+                else:
+                    if vehicle_orientation == VehicleOrientation.HORIZONTAL:
+                        new_optional_locations.append((row, min(col, 6 - vehicle.size), vehicle_orientation))
+                    else:
+                        new_optional_locations.append((min(row, 6 - vehicle.size), col, vehicle_orientation))
+            vehicles_to_optional_locations[vehicle] = new_optional_locations
 
         if vehicles[0] in vehicles_to_optional_locations:
             vehicles_to_optional_locations[vehicles[0]] = filter_by_red_car(vehicles_to_optional_locations[vehicles[0]])

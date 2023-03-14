@@ -308,7 +308,6 @@ class BoardImage:
                         (self.board_orientation == BoardOrientation.LEFT and col == 2 and
                          vehicle_orientation == VehicleOrientation.VERTICAL)):
                     updated_optional_locations.append(optional_location)
-                    print(optional_location)
 
             if not updated_optional_locations:
                 return optional_locations
